@@ -2,9 +2,10 @@
 
 import { useState, useRef, useEffect, useMemo } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Play, Pause } from "lucide-react"
+import { Play, Pause, Upload, Image as ImageIcon, Music } from "lucide-react"
 import { useAudioAnalyzer } from "@/hooks/use-audio-analyzer"
 import { BarWaveform } from "./bar-waveform"
+import { Button } from "./ui/button"
 
 const captions = [
   {
@@ -22,21 +23,64 @@ const captions = [
   { start: 17.5, end: 20.0, text: "Following on that, the joy of possibility overwhelms them." },
 ]
 
-export function Audiogram() {
+interface AudiogramProps {
+  initialData?: {
+    name: string
+    title: string
+    role: string
+    imageSrc: string
+    audioSrc: string
+  }
+  onUpdateName?: (name: string) => void
+  onUpdateTitle?: (title: string) => void
+  onUpdateRole?: (role: string) => void
+  onUpdateImage?: (file: File) => void
+  onUpdateAudio?: (file: File) => void
+}
+
+export function Audiogram({
+  initialData = {
+    name: "Dr Carol Leone",
+    title: "SMU Meadows School of the Arts in Dallas, Texas",
+    role: "Chair of Piano Studies",
+    imageSrc: "/images/carol-leone.png",
+    audioSrc: "/audio.wav"
+  },
+  onUpdateName,
+  onUpdateTitle,
+  onUpdateRole,
+  onUpdateImage,
+  onUpdateAudio
+}: AudiogramProps) {
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(24)
   const [waveformWidth, setWaveformWidth] = useState(400)
   const [imageWidth, setImageWidth] = useState(300)
+
+  // Local state for immediate feedback
+  const [name, setName] = useState(initialData.name)
+  const [title, setTitle] = useState(initialData.title)
+  const [role, setRole] = useState(initialData.role)
+
   const audioRef = useRef<HTMLAudioElement>(null)
   const waveformContainerRef = useRef<HTMLDivElement>(null)
   const imageContainerRef = useRef<HTMLDivElement>(null)
   const intervalRef = useRef<NodeJS.Timeout | null>(null)
+  const imageInputRef = useRef<HTMLInputElement>(null)
+  const audioInputRef = useRef<HTMLInputElement>(null)
 
   const { frequencyData, bassLevel, connect, disconnect } = useAudioAnalyzer(
     audioRef,
     128 // FFT size: 64 frequency bins
   )
+
+  // Update local state when initialData changes
+  useEffect(() => {
+    setName(initialData.name)
+    setTitle(initialData.title)
+    setRole(initialData.role)
+  }, [initialData])
 
   // Measure container widths for responsive sizing
   useEffect(() => {
@@ -131,17 +175,61 @@ export function Audiogram() {
         {/* Image Section - Left Side */}
         <div
           ref={imageContainerRef}
-          className="relative h-full w-[45%] flex-shrink-0 overflow-hidden"
+          className="relative h-full w-[45%] flex-shrink-0 overflow-hidden group cursor-pointer"
+          onClick={() => imageInputRef.current?.click()}
         >
           <img
-            src="/images/carol-leone.png"
-            alt="Carol Leone - Pianist and educator"
-            className="h-full w-full object-cover object-top"
+            src={initialData.imageSrc}
+            alt={`${name} - ${role}`}
+            className="h-full w-full object-cover object-top transition-opacity group-hover:opacity-90"
           />
-          <div className="absolute bottom-0 left-0 right-0 z-10 bg-gradient-to-t from-black/70 to-transparent px-6 py-6">
-            <p className="text-4xl font-medium leading-snug text-white">Dr Carol Leone</p>
-            <p className="text-2xl leading-snug text-white/80">SMU Meadows School of the Arts in Dallas, Texas</p>
-            <p className="text-2xl leading-snug text-white/80">Chair of Piano Studies</p>
+          {/* Initials & Overlay for replace image */}
+          <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity group-hover:opacity-100">
+            <div className="flex flex-col items-center text-white">
+              <ImageIcon className="h-12 w-12 mb-2" />
+              <span className="text-lg font-medium">Change Photo</span>
+            </div>
+          </div>
+          <input
+            type="file"
+            ref={imageInputRef}
+            className="hidden"
+            accept="image/*"
+            onChange={(e) => {
+              if (e.target.files?.[0] && onUpdateImage) {
+                onUpdateImage(e.target.files[0])
+              }
+            }}
+          />
+
+          <div className="absolute bottom-0 left-0 right-0 z-10 bg-gradient-to-t from-black/70 to-transparent px-6 py-6" onClick={(e) => e.stopPropagation()}>
+            <input
+              value={name}
+              onChange={(e) => {
+                setName(e.target.value)
+                onUpdateName?.(e.target.value)
+              }}
+              className="w-full bg-transparent text-4xl font-medium leading-snug text-white border-0 p-0 focus:ring-0 placeholder-white/50"
+              placeholder="Speaker Name"
+            />
+            <input
+              value={title}
+              onChange={(e) => {
+                setTitle(e.target.value)
+                onUpdateTitle?.(e.target.value)
+              }}
+              className="w-full bg-transparent text-2xl leading-snug text-white/80 border-0 p-0 focus:ring-0 mt-1 placeholder-white/40"
+              placeholder="Title / Affiliation"
+            />
+            <input
+              value={role}
+              onChange={(e) => {
+                setRole(e.target.value)
+                onUpdateRole?.(e.target.value)
+              }}
+              className="w-full bg-transparent text-2xl leading-snug text-white/80 border-0 p-0 focus:ring-0 placeholder-white/40"
+              placeholder="Role"
+            />
           </div>
         </div>
 
@@ -204,6 +292,33 @@ export function Audiogram() {
                 height={60}
               />
             </div>
+
+            {/* Replace Audio Button */}
+            <div className="relative">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-[#8a8a8a] hover:text-[#C84C21]"
+                title="Replace Audio"
+                onClick={() => audioInputRef.current?.click()}
+              >
+                <Music className="h-5 w-5" />
+              </Button>
+              <input
+                type="file"
+                ref={audioInputRef}
+                className="hidden"
+                accept="audio/*"
+                onChange={(e) => {
+                  if (e.target.files?.[0] && onUpdateAudio) {
+                    onUpdateAudio(e.target.files[0])
+                    // Stop playback if playing
+                    if (isPlaying) togglePlayPause()
+                  }
+                }}
+              />
+            </div>
+
           </div>
 
           {/* Progress Bar */}
@@ -217,8 +332,7 @@ export function Audiogram() {
         </div>
 
         {/* Hidden Audio Element */}
-        <audio ref={audioRef} preload="metadata">
-          <source src="/audio.wav" type="audio/wav" />
+        <audio ref={audioRef} preload="metadata" src={initialData.audioSrc}>
         </audio>
       </div>
     </div>
