@@ -1,5 +1,5 @@
-import { Audiogram } from "@/components/audiogram"
+import { Dashboard } from "@/components/dashboard"
 
 export default function Home() {
-  return <Audiogram />
+  return <Dashboard />
 }
