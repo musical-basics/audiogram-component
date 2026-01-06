@@ -2,6 +2,7 @@
 
 import { useState, useRef } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { MoreHorizontal, FileAudio, Edit, Trash2, Video, Upload, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -59,13 +60,36 @@ const MOCK_PROJECTS: Project[] = [
 export function Dashboard() {
     const [projects, setProjects] = useState<Project[]>(MOCK_PROJECTS)
     const fileInputRefs = useRef<{ [key: string]: HTMLInputElement | null }>({})
+    const [isExporting, setIsExporting] = useState<string | null>(null)
+    const router = useRouter()
 
     const handleDelete = (id: string) => {
         setProjects(projects.filter((p) => p.id !== id))
     }
 
-    const handleExport = (name: string) => {
-        alert(`Starting export for "${name}"... (This is a mock action)`)
+    const handleExport = async (project: Project) => {
+        setIsExporting(project.id)
+        try {
+            const response = await fetch("/api/render", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(project),
+            })
+
+            if (!response.ok) throw new Error("Export failed")
+
+            const data = await response.json()
+            if (data.success) {
+                alert(`Video saved to: ${data.filePath}`)
+            } else {
+                throw new Error(data.error || "Unknown error")
+            }
+        } catch (error) {
+            console.error("Export error:", error)
+            alert("Failed to export video. Check console for details.")
+        } finally {
+            setIsExporting(null)
+        }
     }
 
     const handleTranscriptChange = (id: string, newText: string) => {
@@ -125,10 +149,18 @@ export function Dashboard() {
                                     <DropdownMenuContent align="end" className="w-[160px] bg-[#2a2a2a] border-[#3a3a3a] text-white">
                                         <DropdownMenuItem
                                             className="cursor-pointer hover:bg-[#3a3a3a] focus:bg-[#3a3a3a]"
-                                            onClick={() => handleExport(project.name)}
+                                            onClick={(e) => {
+                                                e.preventDefault()
+                                                handleExport(project)
+                                            }}
+                                            disabled={isExporting === project.id}
                                         >
-                                            <Video className="mr-2 h-4 w-4" />
-                                            Export Video
+                                            {isExporting === project.id ? (
+                                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                                            ) : (
+                                                <Video className="mr-2 h-4 w-4" />
+                                            )}
+                                            {isExporting === project.id ? "Rendering..." : "Export Video"}
                                         </DropdownMenuItem>
                                         <DropdownMenuItem
                                             className="cursor-pointer text-red-500 hover:bg-[#3a3a3a] hover:text-red-400 focus:bg-[#3a3a3a] focus:text-red-400"
