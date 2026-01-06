@@ -13,7 +13,6 @@ export async function POST(req: NextRequest) {
         console.log(`Starting render for project: ${name} (${id})`);
 
         // 1. Bundle the Remotion project
-        // This creates a webpack bundle of your React code required for rendering
         const bundled = await bundle({
             entryPoint: path.join(process.cwd(), "remotion/index.ts"),
             // In production, you'd cache this bundle to speed up subsequent renders
@@ -24,7 +23,6 @@ export async function POST(req: NextRequest) {
             serveUrl: bundled,
             id: "Audiogram",
             inputProps: {
-                // Pass dynamic props here based on the project
                 audioSrc: audioFile || "/audio.wav", // Fallback for mock
                 portraitSrc: "/images/carol-leone.png", // Mock
                 speakerName: name.split("-")[0].trim(),
@@ -37,28 +35,30 @@ export async function POST(req: NextRequest) {
             },
         });
 
-        // 3. Render the video
-        const tmpDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), "remotion-"));
-        const finalOutput = path.join(tmpDir, "out.mp4");
+        // 3. Render the video to _output folder
+        const outputDir = path.join(process.cwd(), "_output");
+        if (!fs.existsSync(outputDir)) {
+            await fs.promises.mkdir(outputDir, { recursive: true });
+        }
+
+        const fileName = `${name.replace(/\s+/g, "_")}-${id}.mp4`;
+        const finalOutput = path.join(outputDir, fileName);
 
         await renderMedia({
             composition,
             serveUrl: bundled,
             codec: "h264",
             outputLocation: finalOutput,
-            inputProps: composition.props, // Use props from selection
+            inputProps: composition.props,
         });
 
         console.log(`Render complete: ${finalOutput}`);
 
-        // 4. Read file and return response
-        const fileBuffer = await fs.promises.readFile(finalOutput);
-
-        // Clean up temp file (optional: keep for caching)
-        // await fs.promises.unlink(finalOutput); 
-        // await fs.promises.rmdir(tmpDir);
-
-
+        // 4. Return success response with file path
+        return NextResponse.json({
+            success: true,
+            filePath: finalOutput
+        });
 
     } catch (err) {
         console.error("Render error:", err);
